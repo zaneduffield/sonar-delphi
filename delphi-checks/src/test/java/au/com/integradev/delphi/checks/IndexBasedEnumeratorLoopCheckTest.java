@@ -155,11 +155,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(15);
+        .verifyIssues();
   }
 
   @Test
@@ -177,11 +177,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(15);
+        .verifyIssues();
   }
 
   @Test
@@ -270,11 +270,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
                 .appendImpl("begin")
-                .appendImpl("  for var I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for var I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(14);
+        .verifyIssues();
   }
 
   @Test
@@ -291,11 +291,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  I: Integer;")
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    var O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(14);
+        .verifyIssues();
   }
 
   @Test
@@ -313,11 +313,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
                 .appendImpl("  var O := nil;")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(15);
+        .verifyIssues();
   }
 
   @Test
@@ -335,11 +335,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
                 .appendImpl("  var O := nil;")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(15);
+        .verifyIssues();
   }
 
   @Test
@@ -361,11 +361,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  I: Integer;")
                 .appendImpl("  W: TWrapper;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to W.E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to W.E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := W.E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyIssueOnLine(19);
+        .verifyIssues();
   }
 
   @Test
