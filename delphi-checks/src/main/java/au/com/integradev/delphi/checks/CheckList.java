@@ -82,6 +82,7 @@ public final class CheckList {
           IfThenShortCircuitCheck.class,
           ImplicitDefaultEncodingCheck.class,
           ImportSpecificityCheck.class,
+          IndexBasedEnumeratorLoopCheck.class,
           IndexLastListElementCheck.class,
           InheritedMethodWithNoCodeCheck.class,
           InheritedTypeNameCheck.class,
