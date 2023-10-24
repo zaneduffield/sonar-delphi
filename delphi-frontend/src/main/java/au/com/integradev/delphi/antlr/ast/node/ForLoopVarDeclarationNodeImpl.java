@@ -24,6 +24,7 @@ import org.antlr.runtime.Token;
 import org.sonar.plugins.communitydelphi.api.ast.ForLoopVarDeclarationNode;
 import org.sonar.plugins.communitydelphi.api.ast.NameDeclarationNode;
 import org.sonar.plugins.communitydelphi.api.ast.TypeNode;
+import org.sonar.plugins.communitydelphi.api.symbol.declaration.NameDeclaration;
 
 public final class ForLoopVarDeclarationNodeImpl extends ForLoopVarNodeImpl
     implements ForLoopVarDeclarationNode {
@@ -49,5 +50,10 @@ public final class ForLoopVarDeclarationNodeImpl extends ForLoopVarNodeImpl
   @Override
   public <T> T accept(DelphiParserVisitor<T> visitor, T data) {
     return visitor.visit(this, data);
+  }
+
+  @Override
+  public NameDeclaration getNameDeclaration() {
+    return getNameDeclarationNode().getNameDeclaration();
   }
 }

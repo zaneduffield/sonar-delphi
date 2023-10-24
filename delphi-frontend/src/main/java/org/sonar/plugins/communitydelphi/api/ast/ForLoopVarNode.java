@@ -18,4 +18,8 @@
  */
 package org.sonar.plugins.communitydelphi.api.ast;
 
-public interface ForLoopVarNode extends DelphiNode {}
+import org.sonar.plugins.communitydelphi.api.symbol.declaration.NameDeclaration;
+
+public interface ForLoopVarNode extends DelphiNode {
+  NameDeclaration getNameDeclaration();
+}
