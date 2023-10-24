@@ -126,10 +126,6 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
         .map(NameReferenceNode::getNameDeclaration);
   }
 
-  private static <T> T castOrNull(Object obj, Class<T> clazz) {
-    return clazz.isInstance(obj) ? clazz.cast(obj) : null;
-  }
-
   private static DelphiNode getOnlyChild(DelphiNode node) {
     return node.getChildren().size() == 1 ? node.getChild(0) : null;
   }
@@ -143,11 +139,12 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   }
 
   private static boolean isLiteralIntWithValue(DelphiNode node, int i) {
-    return node instanceof PrimaryExpressionNode
-        && Optional.ofNullable(getOnlyChild(node))
-            .filter(IntegerLiteralNode.class::isInstance)
-            .filter(n -> ((IntegerLiteralNode) n).getValueAsInt() == i)
-            .isPresent();
+    return Optional.of(node)
+        .filter(PrimaryExpressionNode.class::isInstance)
+        .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
+        .filter(IntegerLiteralNode.class::isInstance)
+        .filter(n -> ((IntegerLiteralNode) n).getValueAsInt() == i)
+        .isPresent();
   }
 
   private static boolean isTo(DelphiNode to) {
