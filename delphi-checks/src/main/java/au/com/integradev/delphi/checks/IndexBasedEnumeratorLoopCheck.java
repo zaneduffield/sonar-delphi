@@ -18,10 +18,8 @@
  */
 package au.com.integradev.delphi.checks;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import org.sonar.check.Rule;
 import org.sonar.plugins.communitydelphi.api.ast.ArrayAccessorNode;
 import org.sonar.plugins.communitydelphi.api.ast.AssignmentStatementNode;
@@ -73,12 +71,12 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
     var endValue = forNode.getChild(4);
     var loopBody = forNode.getChild(6);
 
-    if (!isAssignOp(assign) || !isZeroLiteral(startValue) || !isTo(to)) {
+    if (!isAssignOp(assign) || !isLiteralZero(startValue) || !isTo(to)) {
       return;
     }
 
     Optional<NameDeclaration> loopVarDecl = getLoopVariableDecl(forVar);
-    Optional<NameDeclaration> enumerableDecl = isEnumerableDotCountMinusOne(endValue);
+    Optional<NameDeclaration> enumerableDecl = isEnumerableVarCountMinusOne(endValue);
     if (loopVarDecl.isPresent()
         && enumerableDecl.isPresent()
         && isFirstStatementIndexedAssignment(loopBody, loopVarDecl.get(), enumerableDecl.get())
@@ -109,33 +107,47 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
       DelphiNode loopBody, NameDeclaration forVarDecl, NameDeclaration enumerable) {
     return Optional.of(loopBody)
         .filter(CompoundStatementNode.class::isInstance)
-        .flatMap(node -> Optional.ofNullable(node.getFirstChildOfType(StatementListNode.class)))
-        .map(DelphiNode::getChildren)
-        .filter(Predicate.not(List::isEmpty))
-        .map(c -> c.get(0))
+        .map(node -> node.getFirstChildOfType(StatementListNode.class))
+        .map(node -> node.getChild(0))
         .filter(node -> isIndexedAssignment(node, enumerable, forVarDecl))
         .isPresent();
   }
 
-  private static Optional<NameDeclaration> isEnumerableDotCountMinusOne(DelphiNode endValue) {
+  private static Optional<NameDeclaration> isEnumerableVarCountMinusOne(DelphiNode endValue) {
     return Optional.of(endValue)
         .filter(BinaryExpressionNode.class::isInstance)
         .map(BinaryExpressionNode.class::cast)
         .filter(binary -> binary.getOperator() == BinaryOperator.SUBTRACT)
         .filter(binary -> isLiteralOne(binary.getRight()))
-        .filter(binary -> binary.getLeft().getChildren().size() == 1)
-        .map(binary -> binary.getLeft().getChild(0))
+        .map(binary -> getOnlyChild(binary.getLeft()))
         .filter(NameReferenceNode.class::isInstance)
         .map(NameReferenceNode.class::cast)
         .filter(IndexBasedEnumeratorLoopCheck::isEnumerableDotCount)
         .map(NameReferenceNode::getNameDeclaration);
   }
 
-  private static boolean isZeroLiteral(DelphiNode node) {
+  private static <T> T castOrNull(Object obj, Class<T> clazz) {
+    return clazz.isInstance(obj) ? clazz.cast(obj) : null;
+  }
+
+  private static DelphiNode getOnlyChild(DelphiNode node) {
+    return node.getChildren().size() == 1 ? node.getChild(0) : null;
+  }
+
+  private static boolean isLiteralZero(DelphiNode node) {
+    return isLiteralIntWithValue(node, 0);
+  }
+
+  private static boolean isLiteralOne(DelphiNode right) {
+    return isLiteralIntWithValue(right, 1);
+  }
+
+  private static boolean isLiteralIntWithValue(DelphiNode node, int i) {
     return node instanceof PrimaryExpressionNode
-        && node.getChildren().size() == 1
-        && node.getChild(0) instanceof IntegerLiteralNode
-        && ((IntegerLiteralNode) node.getChild(0)).getValueAsInt() == 0;
+        && Optional.ofNullable(getOnlyChild(node))
+            .filter(IntegerLiteralNode.class::isInstance)
+            .filter(n -> ((IntegerLiteralNode) n).getValueAsInt() == i)
+            .isPresent();
   }
 
   private static boolean isTo(DelphiNode to) {
@@ -145,10 +157,6 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   private static boolean isAssignOp(DelphiNode assign) {
     return assign instanceof CommonDelphiNode
         && assign.getToken().getType() == DelphiTokenType.ASSIGN;
-  }
-
-  private static boolean isLiteralOne(ExpressionNode right) {
-    return right.isIntegerLiteral() && right.extractLiteral().getValueAsInt() == 1;
   }
 
   private static boolean isEnumerableDotCount(NameReferenceNode node) {
@@ -225,15 +233,10 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
       ExpressionNode assignmentExpr, NameDeclaration index) {
     return Optional.of(assignmentExpr.getChild(1))
         .filter(ArrayAccessorNode.class::isInstance)
-        .filter(arrayAccessor -> arrayAccessor.getChildren().size() == 1)
-        .map(arrayAccessor -> arrayAccessor.getChild(0))
+        .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
         .filter(PrimaryExpressionNode.class::isInstance)
-        .filter(indexExpr -> indexExpr.getChildren().size() == 1)
-        .map(indexExpr -> indexExpr.getChild(0))
-        .filter(NameReferenceNode.class::isInstance)
-        .filter(
-            indexReference ->
-                ((NameReferenceNode) indexReference).getNameDeclaration().equals(index))
+        .map(indexExpr -> ((PrimaryExpressionNode) indexExpr).extractSimpleNameReference())
+        .filter(indexReference -> indexReference.getNameDeclaration().equals(index))
         .isPresent();
   }
 
@@ -248,9 +251,7 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
             .filter(AssignmentStatementNode.class::isInstance)
             .map(n -> ((AssignmentStatementNode) n).getAssignee())
             .filter(PrimaryExpressionNode.class::isInstance)
-            .map(DelphiNode::getChildren)
-            .filter(children -> children.size() == 1)
-            .map(children -> children.get(0))
+            .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
             .filter(NameReferenceNode.class::isInstance)
             .map(NameReferenceNode.class::cast)
             .filter(n -> n.getNameDeclaration().getScope() instanceof MethodScope)
