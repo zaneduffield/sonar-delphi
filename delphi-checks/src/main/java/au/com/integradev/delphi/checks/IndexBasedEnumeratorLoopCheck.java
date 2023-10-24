@@ -18,6 +18,7 @@
  */
 package au.com.integradev.delphi.checks;
 
+import java.util.Optional;
 import java.util.Set;
 import org.sonar.check.Rule;
 import org.sonar.plugins.communitydelphi.api.ast.ArrayAccessorNode;
@@ -49,8 +50,9 @@ import org.sonar.plugins.communitydelphi.api.token.DelphiTokenType;
 import org.sonar.plugins.communitydelphi.api.type.Type;
 import org.sonar.plugins.communitydelphi.api.type.Type.StructType;
 
-@Rule(key = "ManualEnumeratorLoop")
-public class ManualEnumeratorLoopCheck extends DelphiCheck {
+// IndexedBasedEnumeratorLoop
+@Rule(key = "IndexBasedEnumeratorLoop")
+public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   @Override
   public DelphiCheckContext visit(ForToStatementNode forNode, DelphiCheckContext context) {
     doVisit(forNode, context);
@@ -69,50 +71,71 @@ public class ManualEnumeratorLoopCheck extends DelphiCheck {
     var endValue = forNode.getChild(4);
     var loopBody = forNode.getChild(6);
 
-    if ((forVar instanceof ForLoopVarReferenceNode || forVar instanceof ForLoopVarDeclarationNode)
-        && assign instanceof CommonDelphiNode
-        && assign.getToken().getType() == DelphiTokenType.ASSIGN
-        && startValue instanceof PrimaryExpressionNode
-        && startValue.getChildren().size() == 1
-        && startValue.getChild(0) instanceof IntegerLiteralNode
-        && ((IntegerLiteralNode) startValue.getChild(0)).getValueAsInt() == 0
-        && to instanceof CommonDelphiNode
-        && to.getToken().getType() == DelphiTokenType.TO
-        && endValue instanceof BinaryExpressionNode) {
-
-      BinaryExpressionNode binaryEndValue = (BinaryExpressionNode) endValue;
-      ExpressionNode left = binaryEndValue.getLeft();
-      if (binaryEndValue.getOperator() == BinaryOperator.SUBTRACT
-          && isLiteralOne(binaryEndValue.getRight())
-          && left.getChildren().size() == 1
-          && left.getChild(0) instanceof NameReferenceNode) {
-
-        NameReferenceNode upperLoopTargetNameReference = (NameReferenceNode) left.getChild(0);
-
-        var decl = upperLoopTargetNameReference.getNameDeclaration();
-
-        NameDeclaration forVarDecl =
-            (forVar instanceof ForLoopVarReferenceNode)
-                ? ((ForLoopVarReferenceNode) forVar).getNameReference().getNameDeclaration()
-                : ((ForLoopVarDeclarationNode) forVar)
-                    .getNameDeclarationNode()
-                    .getNameDeclaration();
-
-        if (decl instanceof VariableNameDeclaration
-            && isEnumerableDotCount(upperLoopTargetNameReference)
-            && loopBody instanceof CompoundStatementNode
-            && loopBody.getFirstChildOfType(StatementListNode.class) != null
-            && loopBody.getFirstChildOfType(StatementListNode.class).getChildren().size() > 0
-            && isIndexedAssignment(
-                loopBody.getFirstChildOfType(StatementListNode.class).getChild(0), decl, forVarDecl)
-            && loopBody.findDescendantsOfType(NameReferenceNode.class).stream()
-                    .filter(n -> n.getNameDeclaration().equals(forVarDecl))
-                    .count()
-                == 1) {
-          reportIssue(context, forVar, "Enumerate this collection using a for-in loop.");
-        }
-      }
+    if (!(forVar instanceof ForLoopVarReferenceNode
+        || forVar instanceof ForLoopVarDeclarationNode)) {
+      return;
     }
+
+    if (!isAssignOp(assign) || !isZeroLiteral(startValue) || !isTo(to)) {
+      return;
+    }
+    Optional.of(endValue)
+        .filter(BinaryExpressionNode.class::isInstance)
+        .map(BinaryExpressionNode.class::cast)
+    if (!(endValue instanceof BinaryExpressionNode)) {
+      return;
+    }
+    BinaryExpressionNode binaryEndValue = (BinaryExpressionNode) endValue;
+    ExpressionNode left = binaryEndValue.getLeft();
+    if (binaryEndValue.getOperator() != BinaryOperator.SUBTRACT
+        || !isLiteralOne(binaryEndValue.getRight())
+        || left.getChildren().size() != 1
+        || !(left.getChild(0) instanceof NameReferenceNode)) {
+      return;
+    }
+
+    NameReferenceNode upperLoopTargetNameReference = (NameReferenceNode) left.getChild(0);
+
+    var decl = upperLoopTargetNameReference.getNameDeclaration();
+
+    NameDeclaration forVarDecl =
+        (forVar instanceof ForLoopVarReferenceNode)
+            ? ((ForLoopVarReferenceNode) forVar).getNameReference().getNameDeclaration()
+            : ((ForLoopVarDeclarationNode) forVar).getNameDeclarationNode().getNameDeclaration();
+
+    if (!(decl instanceof VariableNameDeclaration)
+        || !isEnumerableDotCount(upperLoopTargetNameReference)) {
+      return;
+    }
+
+    if (!(loopBody instanceof CompoundStatementNode)
+        || loopBody.getFirstChildOfType(StatementListNode.class) == null
+        || loopBody.getFirstChildOfType(StatementListNode.class).getChildren().size() <= 0
+        || !isIndexedAssignment(
+            loopBody.getFirstChildOfType(StatementListNode.class).getChild(0), decl, forVarDecl)
+        || loopBody.findDescendantsOfType(NameReferenceNode.class).stream()
+                .filter(n -> n.getNameDeclaration().equals(forVarDecl))
+                .count()
+            != 1) {
+      return;
+    }
+    reportIssue(context, forVar, "Enumerate this collection using a for-in loop.");
+  }
+
+  private static boolean isZeroLiteral(DelphiNode node) {
+    return node instanceof PrimaryExpressionNode
+        && node.getChildren().size() == 1
+        && node.getChild(0) instanceof IntegerLiteralNode
+        && ((IntegerLiteralNode) node.getChild(0)).getValueAsInt() == 0;
+  }
+
+  private static boolean isTo(DelphiNode to) {
+    return to instanceof CommonDelphiNode && to.getToken().getType() == DelphiTokenType.TO;
+  }
+
+  private static boolean isAssignOp(DelphiNode assign) {
+    return assign instanceof CommonDelphiNode
+        && assign.getToken().getType() == DelphiTokenType.ASSIGN;
   }
 
   private static boolean isLiteralOne(ExpressionNode right) {
@@ -144,7 +167,7 @@ public class ManualEnumeratorLoopCheck extends DelphiCheck {
         .filter(d -> d.getName().equalsIgnoreCase("GetEnumerator"))
         .findFirst()
         .map(Invocable::getReturnType)
-        .filter(ManualEnumeratorLoopCheck::isImplicitEnumeratorType)
+        .filter(IndexBasedEnumeratorLoopCheck::isImplicitEnumeratorType)
         .isPresent();
   }
 

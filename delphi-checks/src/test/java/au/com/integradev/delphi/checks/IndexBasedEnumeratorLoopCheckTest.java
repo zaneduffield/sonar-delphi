@@ -22,7 +22,7 @@ import au.com.integradev.delphi.builders.DelphiTestUnitBuilder;
 import au.com.integradev.delphi.checks.verifier.CheckVerifier;
 import org.junit.jupiter.api.Test;
 
-class ManualEnumeratorLoopCheckTest {
+class IndexBasedEnumeratorLoopCheckTest {
   private DelphiTestUnitBuilder enumeratorUnit() {
     return new DelphiTestUnitBuilder()
         .unitName("MyEnumerable")
@@ -79,7 +79,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopWithoutUseOfIndexShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -99,7 +99,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopWithHardCastShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -121,7 +121,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopWithSoftCastShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -143,7 +143,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopOverExplicitEnumeratorShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -165,7 +165,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopOverImplicitEnumeratorShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(implicitEnumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -187,7 +187,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexIsUsedShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -210,7 +210,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopWithAssignmentToGlobalShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -233,7 +233,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testIndexBasedForLoopWithAssignmentToComplexVarShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -259,7 +259,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testInlineVarIndexBasedForLoopShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -280,7 +280,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testInlineVarObjectIndexBasedForLoopShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -301,7 +301,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testInlineVarObjectOutsideLoopIndexBasedForLoopShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -323,7 +323,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testCountAndEnumeratorAtDifferentLevelsOfHierarchyShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnitMultiLevel())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -345,7 +345,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testEnumeratorAccessedIndirectlyShouldAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -371,7 +371,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testUnMatchingTypesShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
@@ -407,7 +407,7 @@ class ManualEnumeratorLoopCheckTest {
   @Test
   void testAssignmentNotFirstLoopBodyStatementShouldNotAddIssue() {
     CheckVerifier.newVerifier()
-        .withCheck(new ManualEnumeratorLoopCheck())
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
