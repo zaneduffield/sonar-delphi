@@ -63,7 +63,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testWithHardCastShouldNotAddIssue() {
+  void testWithHardCastShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -77,15 +77,15 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := TObject(E[I]);")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 
   @Test
-  void testWithSoftCastShouldNotAddIssue() {
+  void testWithSoftCastShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -99,11 +99,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I] as TObject;")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 
   @Test
@@ -263,7 +263,8 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  EnumerableWithoutMoveNext: TEnumerableWithoutMoveNext;")
                 .appendImpl("  EnumerableWithVoidEnumerator: TEnumerableWithVoidEnumerator;")
                 .appendImpl(
-                    "  EnumerableWithNonStructTypeEnumerator: TEnumerableWithNonStructTypeEnumerator;")
+                    "  EnumerableWithNonStructTypeEnumerator:"
+                        + " TEnumerableWithNonStructTypeEnumerator;")
                 .appendImpl("begin")
                 .appendImpl("  for I := 0 to EnumerableWithoutCurrent.Count - 1 do begin")
                 .appendImpl("    O := EnumerableWithoutCurrent[I];")
@@ -333,7 +334,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testWithAssignmentToGlobalShouldNotAddIssue() {
+  void testWithAssignmentToGlobalShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -348,15 +349,15 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  I: Integer;")
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    Global := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 
   @Test
-  void testWithAssignmentToComplexVarShouldNotAddIssue() {
+  void testWithAssignmentToComplexVarShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -374,11 +375,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  I: Integer;")
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    W.O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 
   @Test
@@ -550,7 +551,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testAssignmentNotFirstLoopBodyStatementShouldNotAddIssue() {
+  void testAssignmentNotFirstLoopBodyStatementShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -564,11 +565,11 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  O: TObject;")
                 .appendImpl("  I: Integer;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    Assert(1 < 2);")
                 .appendImpl("    O := E[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 }
