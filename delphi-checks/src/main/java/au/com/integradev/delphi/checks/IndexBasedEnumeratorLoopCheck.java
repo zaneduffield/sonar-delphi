@@ -18,6 +18,7 @@
  */
 package au.com.integradev.delphi.checks;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.sonar.check.Rule;
@@ -35,6 +36,7 @@ import org.sonar.plugins.communitydelphi.api.ast.PrimaryExpressionNode;
 import org.sonar.plugins.communitydelphi.api.ast.StatementListNode;
 import org.sonar.plugins.communitydelphi.api.ast.StatementNode;
 import org.sonar.plugins.communitydelphi.api.ast.VarStatementNode;
+import org.sonar.plugins.communitydelphi.api.ast.Visibility;
 import org.sonar.plugins.communitydelphi.api.check.DelphiCheck;
 import org.sonar.plugins.communitydelphi.api.check.DelphiCheckContext;
 import org.sonar.plugins.communitydelphi.api.operator.BinaryOperator;
@@ -43,13 +45,17 @@ import org.sonar.plugins.communitydelphi.api.symbol.declaration.MethodNameDeclar
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.NameDeclaration;
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.PropertyNameDeclaration;
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.VariableNameDeclaration;
-import org.sonar.plugins.communitydelphi.api.symbol.scope.DelphiScope;
 import org.sonar.plugins.communitydelphi.api.symbol.scope.MethodScope;
+import org.sonar.plugins.communitydelphi.api.type.StructKind;
 import org.sonar.plugins.communitydelphi.api.type.Type;
+import org.sonar.plugins.communitydelphi.api.type.Type.ScopedType;
 import org.sonar.plugins.communitydelphi.api.type.Type.StructType;
 
 @Rule(key = "IndexBasedEnumeratorLoop")
 public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
+
+  public static final String MESSAGE = "Enumerate this collection using a for-in loop.";
+
   @Override
   public DelphiCheckContext visit(ForToStatementNode forNode, DelphiCheckContext context) {
     doVisit(forNode, context);
@@ -58,7 +64,7 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
 
   private void doVisit(ForToStatementNode forNode, DelphiCheckContext context) {
     if (isViolation(forNode)) {
-      reportIssue(context, forNode.getVariable(), "Enumerate this collection using a for-in loop.");
+      reportIssue(context, forNode.getVariable(), MESSAGE);
     }
   }
 
@@ -147,7 +153,7 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
     }
     var decls = ((StructType) type).typeScope().getMethodDeclarations();
     return decls.stream()
-        .filter(d -> d.getName().equalsIgnoreCase("GetEnumerator"))
+        .filter(IndexBasedEnumeratorLoopCheck::isGetEnumeratorMethod)
         .findFirst()
         .map(Invocable::getReturnType)
         .filter(IndexBasedEnumeratorLoopCheck::isEnumeratorType)
@@ -155,33 +161,45 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   }
 
   private static boolean isEnumeratorType(Type type) {
-    if (type.isSubTypeOf("System.IEnumerator")) {
-      return true;
-    }
-
-    if (!(type instanceof StructType)) {
-      return false;
-    }
-    DelphiScope delphiScope = ((StructType) type).typeScope();
-
-    return hasCurrentProperty(delphiScope.getPropertyDeclarations())
-        && hasMoveNextMethod(delphiScope.getMethodDeclarations())
-        && hasResetMethod(delphiScope.getMethodDeclarations());
+    return type.isSubTypeOf("System.IEnumerator") || isImplicitEnumeratorType(type);
   }
 
-  private static boolean hasResetMethod(Set<MethodNameDeclaration> decls) {
-    return decls.stream()
-        .anyMatch(d -> d.getName().equalsIgnoreCase("Reset") && d.getReturnType().isVoid());
+  private static boolean isImplicitEnumeratorType(Type type) {
+    return Optional.of(type)
+        .filter(StructType.class::isInstance)
+        .map(StructType.class::cast)
+        .filter(
+            structType ->
+                StructKind.OBJECT == structType.kind()
+                    || StructKind.CLASS == structType.kind()
+                    || StructKind.INTERFACE == structType.kind()
+                    || StructKind.RECORD == structType.kind())
+        .map(ScopedType::typeScope)
+        .filter(typeScope -> hasCurrentProperty(typeScope.getPropertyDeclarations()))
+        .filter(typeScope -> hasMoveNextMethod(typeScope.getMethodDeclarations()))
+        .isPresent();
+  }
+
+  private static boolean isVisibleForEnumeration(Visibility decl) {
+    return decl.isPublished() || decl.isPublic();
+  }
+
+  private static boolean isGetEnumeratorMethod(MethodNameDeclaration decl) {
+    return isVisibleForEnumeration(decl) && decl.getName().equalsIgnoreCase("GetEnumerator");
   }
 
   private static boolean hasMoveNextMethod(Set<MethodNameDeclaration> decls) {
     return decls.stream()
-        .anyMatch(d -> d.getName().equalsIgnoreCase("MoveNext") && d.getReturnType().isBoolean());
+        .anyMatch(
+            d ->
+                isVisibleForEnumeration(d)
+                    && d.getName().equalsIgnoreCase("MoveNext")
+                    && d.getReturnType().isBoolean());
   }
 
   private static boolean hasCurrentProperty(Set<PropertyNameDeclaration> decls) {
     return decls.stream()
-        .anyMatch(d -> d.getName().equalsIgnoreCase("Current") && !d.getReturnType().isVoid());
+        .anyMatch(d -> isVisibleForEnumeration(d) && d.getName().equalsIgnoreCase("Current"));
   }
 
   private static boolean isIndexedAssignment(
@@ -211,7 +229,8 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
 
   private static boolean isReferenceTo(DelphiNode enumerableReference, NameDeclaration enumerable) {
     return (enumerableReference instanceof NameReferenceNode)
-        && ((NameReferenceNode) enumerableReference).getNameDeclaration().equals(enumerable);
+        && Objects.equals(
+            ((NameReferenceNode) enumerableReference).getNameDeclaration(), enumerable);
   }
 
   private static boolean isAssignmentTargetCompatible(Node node) {

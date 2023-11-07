@@ -21,6 +21,8 @@ package au.com.integradev.delphi.checks;
 import au.com.integradev.delphi.builders.DelphiTestUnitBuilder;
 import au.com.integradev.delphi.checks.verifier.CheckVerifier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class IndexBasedEnumeratorLoopCheckTest {
   private DelphiTestUnitBuilder enumeratorUnit() {
@@ -40,44 +42,8 @@ class IndexBasedEnumeratorLoopCheckTest {
         .appendDecl("  end;");
   }
 
-  private DelphiTestUnitBuilder enumeratorUnitMultiLevel() {
-    return new DelphiTestUnitBuilder()
-        .unitName("MyEnumerable")
-        .appendDecl("type")
-        .appendDecl("  TEnumerator = class(TInterfacedObject, System.IEnumerator)")
-        .appendDecl("    function GetCurrent: TObject;")
-        .appendDecl("    function MoveNext: Boolean;")
-        .appendDecl("    procedure Reset;")
-        .appendDecl("    property Current: TObject read GetCurrent;")
-        .appendDecl("  end;")
-        .appendDecl("  TIntermediateEnumerable = class")
-        .appendDecl("    FCount: Integer;")
-        .appendDecl("    property Count: Integer read FCount;")
-        .appendDecl("  end;")
-        .appendDecl("  TEnumerable = class(TInterfacedObject, System.IEnumerable)")
-        .appendDecl("    function GetEnumerator: TEnumerator;")
-        .appendDecl("  end;");
-  }
-
-  private DelphiTestUnitBuilder implicitEnumeratorUnit() {
-    return new DelphiTestUnitBuilder()
-        .unitName("MyImplicitEnumerable")
-        .appendDecl("type")
-        .appendDecl("  TEnumerator = class")
-        .appendDecl("    function GetCurrent: TObject;")
-        .appendDecl("    function MoveNext: Boolean;")
-        .appendDecl("    procedure Reset;")
-        .appendDecl("    property Current: TObject read GetCurrent;")
-        .appendDecl("  end;")
-        .appendDecl("  TEnumerable = class")
-        .appendDecl("    FCount: Integer;")
-        .appendDecl("    property Count: Integer read FCount;")
-        .appendDecl("    function GetEnumerator: TEnumerator;")
-        .appendDecl("  end;");
-  }
-
   @Test
-  void testIndexBasedForLoopWithoutUseOfIndexShouldNotAddIssue() {
+  void testWithoutUseOfIndexShouldNotAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -97,7 +63,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopWithHardCastShouldNotAddIssue() {
+  void testWithHardCastShouldNotAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -119,7 +85,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopWithSoftCastShouldNotAddIssue() {
+  void testWithSoftCastShouldNotAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -141,7 +107,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopOverExplicitEnumeratorShouldAddIssue() {
+  void testExplicitEnumeratorShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -163,19 +129,178 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopOverImplicitEnumeratorShouldAddIssue() {
+  void testVisibleImplicitEnumeratorShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
-        .withSearchPathUnit(implicitEnumeratorUnit())
+        .withSearchPathUnit(getImplicitEnumeratorUnit("Private", "private"))
+        .withSearchPathUnit(getImplicitEnumeratorUnit("Protected", "protected"))
+        .withSearchPathUnit(getImplicitEnumeratorUnit("Default", ""))
+        .withSearchPathUnit(getImplicitEnumeratorUnit("Published", "published"))
+        .withSearchPathUnit(getImplicitEnumeratorUnit("Public", "public"))
         .onFile(
             new DelphiTestUnitBuilder()
                 .appendImpl("uses")
-                .appendImpl("  MyImplicitEnumerable;")
+                .appendImpl("  PrivateEnumerable,")
+                .appendImpl("  ProtectedEnumerable,")
+                .appendImpl("  DefaultEnumerable,")
+                .appendImpl("  PublishedEnumerable,")
+                .appendImpl("  PublicEnumerable;")
+                .appendImpl("")
                 .appendImpl("procedure Test;")
                 .appendImpl("var")
                 .appendImpl("  I: Integer;")
-                .appendImpl("  E: TEnumerable;")
                 .appendImpl("  O: TObject;")
+                .appendImpl("  Private: TPrivateEnumerable;")
+                .appendImpl("  Protected: TProtectedEnumerable;")
+                .appendImpl("  Default: TDefaultEnumerable;")
+                .appendImpl("  Published: TPublishedEnumerable;")
+                .appendImpl("  Public: TPublicEnumerable;")
+                .appendImpl("begin")
+                .appendImpl("  for I := 0 to Private.Count - 1 do begin")
+                .appendImpl("    O := Private[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to Protected.Count - 1 do begin")
+                .appendImpl("    O := Protected[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to Default.Count - 1 do begin // Noncompliant")
+                .appendImpl("    O := Default[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to Published.Count - 1 do begin // Noncompliant")
+                .appendImpl("    O := Published[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to Public.Count - 1 do begin // Noncompliant")
+                .appendImpl("    O := Public[I];")
+                .appendImpl("  end;")
+                .appendImpl("end;"))
+        .verifyIssues();
+  }
+
+  private static DelphiTestUnitBuilder getImplicitEnumeratorUnit(String name, String visibility) {
+    return getImplicitEnumeratorUnit(name, visibility, "class");
+  }
+
+  private static DelphiTestUnitBuilder getImplicitEnumeratorUnit(
+      String name, String visibility, String type) {
+    visibility = visibility.toLowerCase();
+    String className = "T" + name + "Enumerator";
+    return new DelphiTestUnitBuilder()
+        .unitName(name + "Enumerable")
+        .appendDecl("type")
+        .appendDecl("  " + className + " = " + type)
+        .appendDecl("    " + visibility)
+        .appendDecl("      function MyGetCurrent: TObject;")
+        .appendDecl("      function MoveNext: Boolean;")
+        .appendDecl("      property Current: TObject read MyGetCurrent;")
+        .appendDecl("  end;")
+        .appendDecl("  T" + name + "Enumerable = class")
+        .appendDecl("    " + visibility)
+        .appendDecl("      function GetEnumerator: " + className + ";")
+        .appendDecl("    private")
+        .appendDecl("      FCount: Integer;")
+        .appendDecl("    public")
+        .appendDecl("      property Count: Integer read FCount;")
+        .appendDecl("  end;");
+  }
+
+  @Test
+  void testEnumerableWithBadEnumeratorsShouldNotAddIssue() {
+    CheckVerifier.newVerifier()
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
+        .withSearchPathUnit(
+            new DelphiTestUnitBuilder()
+                .unitName("BadEnumerators")
+                .appendDecl("type")
+                .appendDecl("  TBaseEnumerable = class")
+                .appendDecl("    private")
+                .appendDecl("      FCount: Integer;")
+                .appendDecl("    public")
+                .appendDecl("      property Count: Integer read FCount;")
+                .appendDecl("  end;")
+                .appendDecl("")
+                .appendDecl("  TEnumeratorWithoutCurrent = class")
+                .appendDecl("    public")
+                .appendDecl("      function MoveNext: Boolean;")
+                .appendDecl("  end;")
+                .appendDecl("  TEnumerableWithoutCurrent = class(TBaseEnumerable)")
+                .appendDecl("    public")
+                .appendDecl("      function GetEnumerator: TEnumeratorWithoutCurrent;")
+                .appendDecl("  end;")
+                .appendDecl("")
+                .appendDecl("  TEnumeratorWithoutMoveNext = class")
+                .appendDecl("    public")
+                .appendDecl("      function MyGetCurrent: TObject;")
+                .appendDecl("      property Current: TObject read MyGetCurrent;")
+                .appendDecl("  end;")
+                .appendDecl("  TEnumerableWithoutCurrent = class(TBaseEnumerable)")
+                .appendDecl("    public")
+                .appendDecl("      function GetEnumerator: TEnumeratorWithoutMoveNext;")
+                .appendDecl("  end;")
+                .appendDecl("")
+                .appendDecl("  TEnumerableWithVoidEnumerator = class(TBaseEnumerable)")
+                .appendDecl("    public")
+                .appendDecl("      procedure GetEnumerator;")
+                .appendDecl("  end;")
+                .appendDecl("")
+                .appendDecl("  TEnumerableWithNonStructTypeEnumerator = class(TBaseEnumerable)")
+                .appendDecl("    public")
+                .appendDecl("      function GetEnumerator: Integer;")
+                .appendDecl("  end;")
+                .appendDecl(""))
+        .onFile(
+            new DelphiTestUnitBuilder()
+                .appendImpl("uses")
+                .appendImpl("  BadEnumerators;")
+                .appendImpl("")
+                .appendImpl("procedure Test;")
+                .appendImpl("var")
+                .appendImpl("  I: Integer;")
+                .appendImpl("  O: TObject;")
+                .appendImpl("  EnumerableWithoutCurrent: TEnumerableWithoutCurrent;")
+                .appendImpl("  EnumerableWithoutMoveNext: TEnumerableWithoutMoveNext;")
+                .appendImpl("  EnumerableWithVoidEnumerator: TEnumerableWithVoidEnumerator;")
+                .appendImpl(
+                    "  EnumerableWithNonStructTypeEnumerator: TEnumerableWithNonStructTypeEnumerator;")
+                .appendImpl("begin")
+                .appendImpl("  for I := 0 to EnumerableWithoutCurrent.Count - 1 do begin")
+                .appendImpl("    O := EnumerableWithoutCurrent[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to EnumerableWithoutMoveNext.Count - 1 do begin")
+                .appendImpl("    O := EnumerableWithoutMoveNext[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to Default.Count - 1 do begin")
+                .appendImpl("    O := Default[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl("  for I := 0 to EnumerableWithVoidEnumerator.Count - 1 do begin")
+                .appendImpl("    O := EnumerableWithVoidEnumerator[I];")
+                .appendImpl("  end;")
+                .appendImpl("")
+                .appendImpl(
+                    "  for I := 0 to EnumerableWithNonStructTypeEnumerator.Count - 1 do begin")
+                .appendImpl("    O := EnumerableWithNonStructTypeEnumerator[I];")
+                .appendImpl("  end;")
+                .appendImpl("end;"))
+        .verifyNoIssues();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"record", "object", "interface", "class"})
+  void testEnumerableWithRecordEnumeratorShouldAddIssue(String type) {
+    CheckVerifier.newVerifier()
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
+        .onFile(
+            getImplicitEnumeratorUnit(type, "", type)
+                .appendImpl("procedure Test;")
+                .appendImpl("var")
+                .appendImpl("  I: Integer;")
+                .appendImpl("  O: TObject;")
+                .appendImpl("  E: T" + type + "Enumerable;")
                 .appendImpl("begin")
                 .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("    O := E[I];")
@@ -208,7 +333,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopWithAssignmentToGlobalShouldNotAddIssue() {
+  void testWithAssignmentToGlobalShouldNotAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -231,7 +356,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testIndexBasedForLoopWithAssignmentToComplexVarShouldNotAddIssue() {
+  void testWithAssignmentToComplexVarShouldNotAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -257,7 +382,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testInlineVarIndexBasedForLoopShouldAddIssue() {
+  void testInlineVarShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -278,7 +403,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testInlineVarObjectIndexBasedForLoopShouldAddIssue() {
+  void testInlineVarObjectShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -299,7 +424,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testInlineVarObjectOutsideLoopIndexBasedForLoopShouldAddIssue() {
+  void testInlineVarObjectOutsideLoopShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -324,7 +449,27 @@ class IndexBasedEnumeratorLoopCheckTest {
   void testCountAndEnumeratorAtDifferentLevelsOfHierarchyShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
-        .withSearchPathUnit(enumeratorUnitMultiLevel())
+        .withSearchPathUnit(
+            new DelphiTestUnitBuilder()
+                .unitName("MyEnumerable")
+                .appendDecl("type")
+                .appendDecl("  TEnumerator = class(TInterfacedObject, System.IEnumerator)")
+                .appendDecl("    public")
+                .appendDecl("      function GetCurrent: TObject;")
+                .appendDecl("      function MoveNext: Boolean;")
+                .appendDecl("      procedure Reset;")
+                .appendDecl("      property Current: TObject read GetCurrent;")
+                .appendDecl("  end;")
+                .appendDecl("  TIntermediateEnumerable = class")
+                .appendDecl("    private")
+                .appendDecl("      FCount: Integer;")
+                .appendDecl("    public")
+                .appendDecl("      property Count: Integer read FCount;")
+                .appendDecl("  end;")
+                .appendDecl("  TEnumerable = class(TInterfacedObject, System.IEnumerable)")
+                .appendDecl("    public")
+                .appendDecl("      function GetEnumerator: TEnumerator;")
+                .appendDecl("  end;"))
         .onFile(
             new DelphiTestUnitBuilder()
                 .appendImpl("uses")

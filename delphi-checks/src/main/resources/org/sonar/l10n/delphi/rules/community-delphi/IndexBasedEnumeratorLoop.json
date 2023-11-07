@@ -1,0 +1,19 @@
+{
+  "title": "Enumerator-based for loops should not be ",
+  "type": "<CODE_SMELL | BUG | VULNERABILITY | SECURITY_HOTSPOT>",
+  "status": "ready",
+  "remediation": {
+    "func": "Constant/Issue",
+    "constantCost": "<roughly how many mins it should take to fix>min"
+  },
+  "code": {
+    "attribute": "<Clean code attribute>",
+    "impacts": {
+      "<MAINTAINABILITY | SECURITY | RELIABILITY>": "<LOW | MEDIUM | HIGH>"
+    }
+  },
+  "tags": [<tags>],
+  "defaultSeverity": "<Minor | Major | Critical | Blocker>",
+  "scope": "<ALL | MAIN | TEST>",
+  "quickfix": "unknown"
+}
