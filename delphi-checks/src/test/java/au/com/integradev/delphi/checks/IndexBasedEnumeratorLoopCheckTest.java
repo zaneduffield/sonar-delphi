@@ -43,7 +43,7 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testWithoutUseOfIndexShouldNotAddIssue() {
+  void testWithoutUseOfIndexShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
         .withSearchPathUnit(enumeratorUnit())
@@ -56,10 +56,10 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("  I: Integer;")
                 .appendImpl("  E: TEnumerable;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
-        .verifyNoIssues();
+        .verifyIssues();
   }
 
   @Test

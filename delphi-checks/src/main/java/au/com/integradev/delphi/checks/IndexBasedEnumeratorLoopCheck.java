@@ -23,19 +23,14 @@ import java.util.Optional;
 import java.util.Set;
 import org.sonar.check.Rule;
 import org.sonar.plugins.communitydelphi.api.ast.ArrayAccessorNode;
-import org.sonar.plugins.communitydelphi.api.ast.AssignmentStatementNode;
 import org.sonar.plugins.communitydelphi.api.ast.BinaryExpressionNode;
-import org.sonar.plugins.communitydelphi.api.ast.CompoundStatementNode;
 import org.sonar.plugins.communitydelphi.api.ast.DelphiNode;
 import org.sonar.plugins.communitydelphi.api.ast.ExpressionNode;
 import org.sonar.plugins.communitydelphi.api.ast.ForToStatementNode;
 import org.sonar.plugins.communitydelphi.api.ast.IntegerLiteralNode;
 import org.sonar.plugins.communitydelphi.api.ast.NameReferenceNode;
-import org.sonar.plugins.communitydelphi.api.ast.Node;
 import org.sonar.plugins.communitydelphi.api.ast.PrimaryExpressionNode;
-import org.sonar.plugins.communitydelphi.api.ast.StatementListNode;
 import org.sonar.plugins.communitydelphi.api.ast.StatementNode;
-import org.sonar.plugins.communitydelphi.api.ast.VarStatementNode;
 import org.sonar.plugins.communitydelphi.api.ast.Visibility;
 import org.sonar.plugins.communitydelphi.api.check.DelphiCheck;
 import org.sonar.plugins.communitydelphi.api.check.DelphiCheckContext;
@@ -45,7 +40,6 @@ import org.sonar.plugins.communitydelphi.api.symbol.declaration.MethodNameDeclar
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.NameDeclaration;
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.PropertyNameDeclaration;
 import org.sonar.plugins.communitydelphi.api.symbol.declaration.VariableNameDeclaration;
-import org.sonar.plugins.communitydelphi.api.symbol.scope.MethodScope;
 import org.sonar.plugins.communitydelphi.api.type.StructKind;
 import org.sonar.plugins.communitydelphi.api.type.Type;
 import org.sonar.plugins.communitydelphi.api.type.Type.ScopedType;
@@ -71,42 +65,42 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   private static boolean isViolation(ForToStatementNode forNode) {
     StatementNode loopBody = forNode.getStatement();
     NameDeclaration loopVarDecl = forNode.getVariable().getNameDeclaration();
+
     return loopVarDecl != null
         && isLiteralZero(forNode.getInitializerExpression())
-        && isEnumerableCountMinusOne(forNode.getTargetExpression())
+        && extractLeftSideOfSubByOne(forNode.getTargetExpression())
+            .flatMap(IndexBasedEnumeratorLoopCheck::extractEnumerableFromDotCount)
+            .map(NameReferenceNode::getNameDeclaration)
             .filter(
-                decl -> isFirstStatementIndexedAssignmentToLocalVar(loopBody, loopVarDecl, decl))
-            .isPresent()
-        && countReferencesInLoop(loopBody, loopVarDecl) == 1;
+                enumerableDecl ->
+                    allReferencesToLoopVarCompatibleWithEnumeration(
+                        loopBody, loopVarDecl, enumerableDecl))
+            .isPresent();
   }
 
-  private static long countReferencesInLoop(DelphiNode loopBody, NameDeclaration forVarDecl) {
-    return loopBody.findDescendantsOfType(NameReferenceNode.class).stream()
-        .filter(n -> n.getNameDeclaration().equals(forVarDecl))
-        .count();
-  }
-
-  private static boolean isFirstStatementIndexedAssignmentToLocalVar(
+  private static boolean allReferencesToLoopVarCompatibleWithEnumeration(
       StatementNode loopBody, NameDeclaration forVarDecl, NameDeclaration enumerable) {
-    return Optional.of(loopBody)
-        .filter(CompoundStatementNode.class::isInstance)
-        .map(node -> node.getFirstChildOfType(StatementListNode.class))
-        .map(node -> node.getChild(0))
-        .filter(node -> isIndexedAssignment(node, enumerable, forVarDecl))
-        .isPresent();
+    return loopBody.findDescendantsOfType(NameReferenceNode.class).stream()
+        .filter(n -> Objects.equals(n.getNameDeclaration(), forVarDecl))
+        .allMatch(
+            n -> isEnumerableIndexedByNameReference(n.getNthParent(3), enumerable, forVarDecl));
   }
 
-  private static Optional<NameDeclaration> isEnumerableCountMinusOne(DelphiNode endValue) {
+  private static Optional<ExpressionNode> extractLeftSideOfSubByOne(DelphiNode endValue) {
     return Optional.of(endValue)
         .filter(BinaryExpressionNode.class::isInstance)
         .map(BinaryExpressionNode.class::cast)
         .filter(binary -> binary.getOperator() == BinaryOperator.SUBTRACT)
         .filter(binary -> isLiteralOne(binary.getRight()))
-        .map(binary -> getOnlyChild(binary.getLeft()))
+        .map(BinaryExpressionNode::getLeft);
+  }
+
+  private static Optional<NameReferenceNode> extractEnumerableFromDotCount(ExpressionNode node) {
+    return Optional.of(node)
+        .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
         .filter(NameReferenceNode.class::isInstance)
         .map(NameReferenceNode.class::cast)
-        .filter(IndexBasedEnumeratorLoopCheck::isEnumerableDotCount)
-        .map(NameReferenceNode::getNameDeclaration);
+        .filter(IndexBasedEnumeratorLoopCheck::isEnumerableDotCount);
   }
 
   private static DelphiNode getOnlyChild(DelphiNode node) {
@@ -170,10 +164,10 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
         .map(StructType.class::cast)
         .filter(
             structType ->
-                StructKind.OBJECT == structType.kind()
-                    || StructKind.CLASS == structType.kind()
+                StructKind.CLASS == structType.kind()
                     || StructKind.INTERFACE == structType.kind()
-                    || StructKind.RECORD == structType.kind())
+                    || StructKind.RECORD == structType.kind()
+                    || StructKind.OBJECT == structType.kind())
         .map(ScopedType::typeScope)
         .filter(typeScope -> hasCurrentProperty(typeScope.getPropertyDeclarations()))
         .filter(typeScope -> hasMoveNextMethod(typeScope.getMethodDeclarations()))
@@ -202,20 +196,19 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
         .anyMatch(d -> isVisibleForEnumeration(d) && d.getName().equalsIgnoreCase("Current"));
   }
 
-  private static boolean isIndexedAssignment(
-      Node node, NameDeclaration enumerable, NameDeclaration index) {
-    return isAssignmentTargetCompatible(node)
-        && Optional.ofNullable(getAssignmentExpression(node))
-            .filter(PrimaryExpressionNode.class::isInstance)
-            .filter(expr -> expr.getChildren().size() == 2)
-            .filter(expr -> isReferenceTo(expr.getChild(0), enumerable))
-            .filter(expr -> isArrayAccessWithNameReference(expr, index))
-            .isPresent();
+  private static boolean isEnumerableIndexedByNameReference(
+      DelphiNode expr, NameDeclaration enumerableDecl, NameDeclaration indexDecl) {
+    return Optional.ofNullable(expr)
+        .filter(PrimaryExpressionNode.class::isInstance)
+        .filter(e -> e.getChildren().size() == 2)
+        .filter(e -> isReferenceTo(e.getChild(0), enumerableDecl))
+        .filter(e -> isArrayAccessorWithReferenceToDecl(e.getChild(1), indexDecl))
+        .isPresent();
   }
 
-  private static boolean isArrayAccessWithNameReference(
-      ExpressionNode assignmentExpr, NameDeclaration index) {
-    return Optional.of(assignmentExpr.getChild(1))
+  private static boolean isArrayAccessorWithReferenceToDecl(
+      DelphiNode expr, NameDeclaration indexDecl) {
+    return Optional.of(expr)
         .filter(ArrayAccessorNode.class::isInstance)
         .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
         .filter(PrimaryExpressionNode.class::isInstance)
@@ -223,37 +216,12 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
         .filter(NameReferenceNode.class::isInstance)
         .map(NameReferenceNode.class::cast)
         .map(NameReferenceNode::getNameDeclaration)
-        .filter(decl -> decl.equals(index))
+        .filter(decl -> decl.equals(indexDecl))
         .isPresent();
   }
 
-  private static boolean isReferenceTo(DelphiNode enumerableReference, NameDeclaration enumerable) {
-    return (enumerableReference instanceof NameReferenceNode)
-        && Objects.equals(
-            ((NameReferenceNode) enumerableReference).getNameDeclaration(), enumerable);
-  }
-
-  private static boolean isAssignmentTargetCompatible(Node node) {
-    return (node instanceof VarStatementNode)
-        || Optional.of(node)
-            .filter(AssignmentStatementNode.class::isInstance)
-            .map(n -> ((AssignmentStatementNode) n).getAssignee())
-            .filter(PrimaryExpressionNode.class::isInstance)
-            .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
-            .filter(NameReferenceNode.class::isInstance)
-            .map(NameReferenceNode.class::cast)
-            .filter(n -> n.getNameDeclaration().getScope() instanceof MethodScope)
-            .map(DelphiNode::getChildren)
-            .filter(children -> children.size() == 1)
-            .isPresent();
-  }
-
-  private static ExpressionNode getAssignmentExpression(Node node) {
-    if (node instanceof VarStatementNode) {
-      return ((VarStatementNode) node).getExpression();
-    } else if (node instanceof AssignmentStatementNode) {
-      return ((AssignmentStatementNode) node).getValue();
-    }
-    return null;
+  private static boolean isReferenceTo(DelphiNode reference, NameDeclaration decl) {
+    return (reference instanceof NameReferenceNode)
+        && Objects.equals(((NameReferenceNode) reference).getNameDeclaration(), decl);
   }
 }
