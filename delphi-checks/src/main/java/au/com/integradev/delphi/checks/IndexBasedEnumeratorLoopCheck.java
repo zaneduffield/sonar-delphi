@@ -82,12 +82,11 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
       StatementNode loopBody, NameDeclaration forVarDecl, NameDeclaration enumerable) {
     return loopBody.findDescendantsOfType(NameReferenceNode.class).stream()
         .filter(n -> Objects.equals(n.getNameDeclaration(), forVarDecl))
-        .allMatch(
-            n -> isEnumerableIndexedByNameReference(n.getNthParent(3), enumerable, forVarDecl));
+        .allMatch(n -> isSimpleIndexIntoEnumerable(n, enumerable, forVarDecl));
   }
 
   private static Optional<ExpressionNode> extractLeftSideOfSubByOne(DelphiNode endValue) {
-    return Optional.of(endValue)
+    return Optional.ofNullable(endValue)
         .filter(BinaryExpressionNode.class::isInstance)
         .map(BinaryExpressionNode.class::cast)
         .filter(binary -> binary.getOperator() == BinaryOperator.SUBTRACT)
@@ -96,7 +95,7 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   }
 
   private static Optional<NameReferenceNode> extractEnumerableFromDotCount(ExpressionNode node) {
-    return Optional.of(node)
+    return Optional.ofNullable(node)
         .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
         .filter(NameReferenceNode.class::isInstance)
         .map(NameReferenceNode.class::cast)
@@ -116,9 +115,10 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   }
 
   private static boolean isLiteralIntWithValue(DelphiNode node, int i) {
-    return Optional.of(node)
-        .filter(PrimaryExpressionNode.class::isInstance)
-        .map(PrimaryExpressionNode.class::cast)
+    return Optional.ofNullable(node)
+        .filter(ExpressionNode.class::isInstance)
+        .map(ExpressionNode.class::cast)
+        .map(ExpressionNode::skipParentheses)
         .map(ExpressionNode::extractLiteral)
         .filter(IntegerLiteralNode.class::isInstance)
         .filter(n -> n.getValueAsInt() == i)
@@ -159,7 +159,7 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
   }
 
   private static boolean isImplicitEnumeratorType(Type type) {
-    return Optional.of(type)
+    return Optional.ofNullable(type)
         .filter(StructType.class::isInstance)
         .map(StructType.class::cast)
         .filter(
@@ -196,9 +196,11 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
         .anyMatch(d -> isVisibleForEnumeration(d) && d.getName().equalsIgnoreCase("Current"));
   }
 
-  private static boolean isEnumerableIndexedByNameReference(
-      DelphiNode expr, NameDeclaration enumerableDecl, NameDeclaration indexDecl) {
-    return Optional.ofNullable(expr)
+  private static boolean isSimpleIndexIntoEnumerable(
+      DelphiNode node, NameDeclaration enumerableDecl, NameDeclaration indexDecl) {
+    return Optional.ofNullable(node)
+        .map(n -> n.getFirstParentOfType(ArrayAccessorNode.class))
+        .map(DelphiNode::getParent)
         .filter(PrimaryExpressionNode.class::isInstance)
         .filter(e -> e.getChildren().size() == 2)
         .filter(e -> isReferenceTo(e.getChild(0), enumerableDecl))
@@ -208,10 +210,12 @@ public class IndexBasedEnumeratorLoopCheck extends DelphiCheck {
 
   private static boolean isArrayAccessorWithReferenceToDecl(
       DelphiNode expr, NameDeclaration indexDecl) {
-    return Optional.of(expr)
+    return Optional.ofNullable(expr)
         .filter(ArrayAccessorNode.class::isInstance)
         .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
-        .filter(PrimaryExpressionNode.class::isInstance)
+        .filter(ExpressionNode.class::isInstance)
+        .map(ExpressionNode.class::cast)
+        .map(ExpressionNode::skipParentheses)
         .map(IndexBasedEnumeratorLoopCheck::getOnlyChild)
         .filter(NameReferenceNode.class::isInstance)
         .map(NameReferenceNode.class::cast)

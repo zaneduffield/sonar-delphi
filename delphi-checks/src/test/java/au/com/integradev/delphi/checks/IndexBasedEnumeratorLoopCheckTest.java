@@ -572,4 +572,50 @@ class IndexBasedEnumeratorLoopCheckTest {
                 .appendImpl("end;"))
         .verifyIssues();
   }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"I - 1", "I + 0", "-I"})
+  void testIncompatibleIndexExpressionShouldNotAddIssue(String expr) {
+    CheckVerifier.newVerifier()
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
+        .withSearchPathUnit(enumeratorUnit())
+        .onFile(
+            new DelphiTestUnitBuilder()
+                .appendImpl("uses")
+                .appendImpl("  MyEnumerable;")
+                .appendImpl("procedure Test;")
+                .appendImpl("var")
+                .appendImpl("  E: TEnumerable;")
+                .appendImpl("  O: TObject;")
+                .appendImpl("  I: Integer;")
+                .appendImpl("begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin")
+                .appendImpl("    O := E[" + expr + "];")
+                .appendImpl("  end;")
+                .appendImpl("end;"))
+        .verifyNoIssues();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"I", "(I)"})
+  void testCompatibleIndexExpressionShouldAddIssue(String expr) {
+    CheckVerifier.newVerifier()
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
+        .withSearchPathUnit(enumeratorUnit())
+        .onFile(
+            new DelphiTestUnitBuilder()
+                .appendImpl("uses")
+                .appendImpl("  MyEnumerable;")
+                .appendImpl("procedure Test;")
+                .appendImpl("var")
+                .appendImpl("  E: TEnumerable;")
+                .appendImpl("  O: TObject;")
+                .appendImpl("  I: Integer;")
+                .appendImpl("begin")
+                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
+                .appendImpl("    O := E[" + expr + "];")
+                .appendImpl("  end;")
+                .appendImpl("end;"))
+        .verifyIssues();
+  }
 }
