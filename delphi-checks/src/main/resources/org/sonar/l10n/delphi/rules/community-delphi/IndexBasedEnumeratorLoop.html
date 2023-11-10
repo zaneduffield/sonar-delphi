@@ -1,0 +1,49 @@
+<h2>Why is this an issue?</h2>
+<p>
+Explicitly indexing a collection with a loop variable from <code>0</code> to <code>Count - 1</code>
+is unnecessarily verbose and error-prone when the collection provides an enumerator.
+</p>
+
+<b>Noncompliant code example</b>
+<pre>
+  var
+    I: Integer;
+    L: TList;
+  begin
+    for I := 0 to L.Count - 1 do begin
+      Foo(L[I]);
+    end;
+  end.
+</pre>
+
+<b>Compliant code example</b>
+<pre>
+  var
+    E: Pointer;
+    L: TList;
+  begin
+    for E in L do begin
+      Foo(E);
+    end;
+  end.
+</pre>
+
+<h2>How to fix it</h2>
+<ol>
+  <li>Convert the loop statement to the 'for-in' syntax</li>
+  <li>Update all uses of the original loop variable as an index to the new loop variable</li>
+  <li>Clean up any now-unused variables and consider removing any redundant variables</li>
+</ol>
+
+<h3>Exceptions</h3>
+No issue is raised if the index variable is used in the loop body for something other than indexing the
+enumerable collection.
+
+<h2>Resources</h2>
+<ul>
+  <li>
+    <a href="https://docwiki.embarcadero.com/RADStudio/Sydney/en/Declarations_and_Statements_(Delphi)#Iteration_Over_Containers_Using_For_Statements">
+      RAD Studio Documentation: Iteration Over Containers Using For Statements
+    </a>
+  </li>
+</ul>

@@ -107,22 +107,38 @@ class IndexBasedEnumeratorLoopCheckTest {
   }
 
   @Test
-  void testExplicitEnumeratorShouldAddIssue() {
+  void testLoopOverArrayShouldAddIssue() {
     CheckVerifier.newVerifier()
         .withCheck(new IndexBasedEnumeratorLoopCheck())
-        .withSearchPathUnit(enumeratorUnit())
         .onFile(
             new DelphiTestUnitBuilder()
-                .appendImpl("uses")
-                .appendImpl("  MyEnumerable;")
                 .appendImpl("procedure Test;")
                 .appendImpl("var")
                 .appendImpl("  I: Integer;")
-                .appendImpl("  E: TEnumerable;")
-                .appendImpl("  O: TObject;")
+                .appendImpl("  A: array of Integer;")
+                .appendImpl("  J: Integer;")
                 .appendImpl("begin")
-                .appendImpl("  for I := 0 to E.Count - 1 do begin // Noncompliant")
-                .appendImpl("    O := E[I];")
+                .appendImpl("  for I := 0 to Length(A) - 1 do begin // Noncompliant")
+                .appendImpl("    J := A[I];")
+                .appendImpl("  end;")
+                .appendImpl("end;"))
+        .verifyIssues();
+  }
+
+  @Test
+  void testLoopOverOneBasedStringShouldAddIssue() {
+    CheckVerifier.newVerifier()
+        .withCheck(new IndexBasedEnumeratorLoopCheck())
+        .onFile(
+            new DelphiTestUnitBuilder()
+                .appendImpl("procedure Test;")
+                .appendImpl("var")
+                .appendImpl("  I: Integer;")
+                .appendImpl("  S: String;")
+                .appendImpl("  C: Integer;")
+                .appendImpl("begin")
+                .appendImpl("  for I := 1 to Length(S) do begin // Noncompliant")
+                .appendImpl("    C := S[I];")
                 .appendImpl("  end;")
                 .appendImpl("end;"))
         .verifyIssues();

@@ -1,19 +1,21 @@
 {
-  "title": "Enumerator-based for loops should not be ",
-  "type": "<CODE_SMELL | BUG | VULNERABILITY | SECURITY_HOTSPOT>",
+  "title": "Loops over enumerables should use for-in syntax",
+  "type": "CODE_SMELL",
   "status": "ready",
   "remediation": {
     "func": "Constant/Issue",
-    "constantCost": "<roughly how many mins it should take to fix>min"
+    "constantCost": "5min"
   },
   "code": {
-    "attribute": "<Clean code attribute>",
+    "attribute": "clear",
     "impacts": {
-      "<MAINTAINABILITY | SECURITY | RELIABILITY>": "<LOW | MEDIUM | HIGH>"
+      "MAINTAINABILITY": "LOW"
     }
   },
-  "tags": [<tags>],
-  "defaultSeverity": "<Minor | Major | Critical | Blocker>",
-  "scope": "<ALL | MAIN | TEST>",
+  "tags": [
+    "clumsy"
+  ],
+  "defaultSeverity": "Minor",
+  "scope": "ALL",
   "quickfix": "unknown"
 }
